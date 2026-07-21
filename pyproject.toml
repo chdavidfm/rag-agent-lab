@@ -1,0 +1,14 @@
+[project]
+name = "rag-agent-lab"
+version = "0.1.0"
+description = "Agente RAG mínimo, honesto y didáctico. Construido en público."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
