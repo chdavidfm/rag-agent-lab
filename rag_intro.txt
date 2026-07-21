@@ -1,0 +1,25 @@
+¿Qué es RAG?
+
+RAG son las siglas de Retrieval-Augmented Generation (generación aumentada por
+recuperación). Es una técnica que combina dos ideas: primero recuperar los
+fragmentos de información más relevantes de una base de documentos, y después
+usar un modelo de lenguaje para redactar una respuesta basándose SOLO en esos
+fragmentos.
+
+¿Por qué es útil?
+
+Un modelo de lenguaje por sí solo puede inventar datos (alucinar). Con RAG, el
+modelo se apoya en información real y verificable que tú controlas. Además,
+puedes actualizar el conocimiento del sistema simplemente cambiando los
+documentos, sin reentrenar el modelo.
+
+Las cuatro etapas de un RAG básico
+
+1. Trocear (chunking): partir los documentos largos en fragmentos manejables.
+2. Indexar: convertir cada fragmento en una representación numérica que permita
+   compararlos (por ejemplo, TF-IDF o embeddings neuronales).
+3. Recuperar: dada una pregunta, encontrar los fragmentos más parecidos.
+4. Generar: pedir al modelo una respuesta que use esos fragmentos como contexto.
+
+Este proyecto implementa esas cuatro etapas de la forma más simple posible para
+que se entiendan de raíz, y deja la puerta abierta a mejorarlas una a una.
