@@ -46,7 +46,7 @@ class TfidfRetriever:
         self._matrix = None
         self._docs: list[str] = []
 
-    def index(self, docs: list[str]) -> "TfidfRetriever":
+    def index(self, docs: list[str]) -> TfidfRetriever:
         """Construye el índice a partir de una lista de fragmentos."""
         if not docs:
             raise ValueError("No hay documentos que indexar")

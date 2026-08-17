@@ -24,7 +24,7 @@ class RagPipeline:
         self.k = k
         self.retriever = TfidfRetriever()
 
-    def index_paths(self, paths: list[Path]) -> "RagPipeline":
+    def index_paths(self, paths: list[Path]) -> RagPipeline:
         """Lee y trocea cada archivo, y construye el índice de recuperación."""
         chunks: list[str] = []
         for path in paths:
