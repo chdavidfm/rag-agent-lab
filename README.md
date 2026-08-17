@@ -1,84 +1,99 @@
-# 🤖 rag-agent-lab
+# rag-agent-lab
 
-> Un agente **RAG** (Retrieval-Augmented Generation) mínimo, honesto y didáctico.
-> Funciona **100% en local sin claves de API**, y mejora cuando le conectas un LLM.
+> Un agente **RAG** (Retrieval-Augmented Generation) mínimo y didáctico.
+> Recupera y responde sobre tus propios documentos: **100 % local, sin claves de API**, y mejora cuando le conectas un LLM.
 
 <p align="left">
-  <img src="https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white" alt="Tests">
-  <img src="https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black" alt="Ruff">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+  <a href="https://github.com/chdavidfm/rag-agent-lab/actions/workflows/ci.yml"><img src="https://github.com/chdavidfm/rag-agent-lab/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/lint%20%26%20format-ruff-261230?logo=ruff&logoColor=white" alt="Ruff">
+  <img src="https://img.shields.io/badge/license-MIT-3da639" alt="MIT License">
 </p>
 
----
+## Qué es
 
-## ✋ Honestidad primero
+Le das una carpeta de documentos `.txt` y una pregunta; el sistema recupera los
+fragmentos más relevantes y construye la respuesta a partir de ellos. Está
+escrito para **entenderse de raíz**: cada etapa vive en su propio módulo, con el
+mínimo de dependencias y sin cajas negras.
 
-Estoy aprendiendo IA **construyendo en público**. Este es mi primer laboratorio de
-RAG: lo he construido con ayuda de IA mientras entiendo cada pieza, y lo dejo
-**deliberadamente simple** para poder explicar *por qué* funciona, no solo *que*
-funciona. No es una librería para producción — es una base sólida para aprender
-y crecer.
-
-## 🧠 ¿Qué hace?
-
-Le das una carpeta de documentos `.txt` y una pregunta. El sistema:
-
-1. **Trocea** los documentos en fragmentos con solape (`chunk.py`)
-2. **Indexa** los fragmentos con TF-IDF (`retriever.py`)
-3. **Recupera** los más relevantes para tu pregunta
-4. **Genera** una respuesta con ellos (`generate.py`)
-
-```
+```text
    documentos.txt
         │
         ▼
-   [ trocear ] ──► [ indexar TF-IDF ] ──► [ recuperar top-k ] ──► [ generar ] ──► respuesta
-                                                ▲                       │
-                                            pregunta ──────────────────┘
+   trocear  ──►  indexar (TF-IDF)  ──►  recuperar top-k  ──►  generar  ──►  respuesta
+                                              ▲                    │
+                                          pregunta ────────────────┘
 ```
 
-## 🚀 Cómo probarlo (2 minutos)
+| Etapa | Módulo | Responsabilidad |
+|-------|--------|-----------------|
+| Trocear | `rag_agent/chunk.py` | Partir documentos largos en fragmentos con solape |
+| Indexar / Recuperar | `rag_agent/retriever.py` | Vectorizar con TF-IDF y ordenar por similitud coseno |
+| Generar | `rag_agent/generate.py` | Respuesta extractiva (local) o redactada por un LLM |
+| Orquestar | `rag_agent/pipeline.py` | Unir las etapas en un flujo único |
+| CLI | `rag_agent/cli.py` | Interfaz de línea de comandos |
+
+## Instalación
+
+Requiere Python 3.10 o superior.
 
 ```bash
-# 1. Clonar e instalar
 git clone https://github.com/chdavidfm/rag-agent-lab.git
 cd rag-agent-lab
-pip install -r requirements.txt
-
-# 2. Preguntar sobre los documentos de ejemplo (¡sin ninguna clave!)
-python -m rag_agent.cli --docs data/sample --ask "¿Qué es RAG?"
+pip install -e .
 ```
 
-Sin `OPENAI_API_KEY`, responde en **modo local**: te muestra los fragmentos más
-relevantes (no inventa nada). Si añades una clave en un archivo `.env`
-(ver `.env.example`), un LLM redactará la respuesta apoyándose en esos fragmentos.
-
-## 🧪 Desarrollo
+## Uso
 
 ```bash
-pip install -r requirements-dev.txt
-ruff check .     # estilo
-pytest           # tests
+rag-agent --docs data/sample --ask "¿Qué es RAG?"
 ```
 
-La integración continua (GitHub Actions) ejecuta lint + tests en cada push.
+Sin `OPENAI_API_KEY` el agente responde en **modo local**: devuelve los
+fragmentos más relevantes, sin inventar nada. Es rápido, gratuito y offline.
 
-## 🗺️ Roadmap (lo que quiero aprender construyendo)
+### Modo LLM (opcional)
 
-- [x] Pipeline RAG end-to-end en local
-- [x] Tests y CI en verde
+Para que un modelo redacte la respuesta apoyándose en el contexto recuperado:
+
+```bash
+pip install -e ".[llm]"
+cp .env.example .env        # y añade tu OPENAI_API_KEY
+```
+
+`OPENAI_BASE_URL` permite apuntar a cualquier endpoint compatible con la API de
+OpenAI (Ollama, Groq, etc.).
+
+## Desarrollo
+
+```bash
+pip install -e ".[dev]"
+ruff format --check .   # formato
+ruff check .            # lint (E, F, I, UP, B)
+pytest                  # tests
+```
+
+La integración continua (GitHub Actions) ejecuta estas tres comprobaciones en
+cada push y cada pull request.
+
+## Roadmap
+
+- [x] Pipeline RAG completo, en local y sin claves
+- [x] Empaquetado instalable, tests y CI en verde
 - [ ] Embeddings neuronales (sentence-transformers) como alternativa a TF-IDF
 - [ ] Almacén vectorial persistente (FAISS / Chroma)
-- [ ] Trocear también PDF y Markdown
-- [ ] Pequeña API con FastAPI + interfaz web
-- [ ] Evaluación de calidad de las respuestas
+- [ ] Ingesta de PDF y Markdown además de texto plano
+- [ ] API con FastAPI e interfaz web
+- [ ] Evaluación automática de la calidad de las respuestas
 
-## 📚 Lo que voy aprendiendo
+## Sobre el proyecto
 
-Iré anotando aquí las ideas clave que entiendo en cada etapa — para mí y para
-quien lea esto empezando como yo.
+Laboratorio de aprendizaje construido en público por
+[David Mejía](https://github.com/chdavidfm) mientras profundiza en IA aplicada.
+Deliberadamente pequeño para poder razonar cada decisión; pensado para crecer
+etapa a etapa siguiendo el roadmap.
 
----
+## Licencia
 
-_Construido en público por [David Mejía](https://github.com/chdavidfm) · MIT License_
+[MIT](LICENSE).
