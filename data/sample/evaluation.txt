@@ -1,0 +1,16 @@
+Measuring Retrieval Quality
+
+Recall at k reports the proportion of relevant passages that appear among the k
+results returned. It answers whether the information reached the model at all.
+
+Mean Reciprocal Rank, abbreviated MRR, averages one divided by the position of
+the first correct result. Unlike recall, it rewards placing the right passage at
+the top rather than merely including it somewhere in the list.
+
+A golden dataset is a fixed collection of questions paired with the passages that
+should answer them. Running the same questions after every change turns quality
+into a regression test: if the numbers drop, the build fails.
+
+Latency matters as much as accuracy in production. A pipeline that returns a
+perfect answer after ten seconds is unusable for interactive search, so systems
+are tuned against both dimensions at once.

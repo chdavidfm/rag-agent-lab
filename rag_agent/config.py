@@ -1,8 +1,8 @@
-"""Configuración del agente, leída del entorno.
+"""Runtime configuration, resolved from the environment.
 
-Centralizar aquí la lectura de variables evita que cada módulo invente su
-propio nombre o su propio valor por defecto, y permite cargar un archivo
-`.env` local sin ensuciar el entorno del sistema.
+Centralising this lookup keeps every module from inventing its own variable
+names and defaults, and allows a local `.env` file to be loaded without
+polluting the system environment.
 """
 
 from __future__ import annotations
@@ -13,19 +13,22 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Carga el .env del directorio de trabajo si existe. Las variables que ya
-# estén definidas en el entorno tienen prioridad: en producción manda el
-# entorno real, no un archivo olvidado en el disco.
+# Load a .env file from the working directory when present. Variables already
+# defined in the environment win: in production the real environment is the
+# source of truth, not a file left behind on disk.
 load_dotenv(override=False)
 
 
 @dataclass(frozen=True)
 class Settings:
-    """Parámetros de ejecución resueltos desde el entorno."""
+    """Execution parameters resolved from the environment."""
 
     docs_dir: Path
     backend: str
     embedding_model: str
+    reranker_model: str
+    rerank: bool
+    cache_dir: Path
     chunk_size: int
     overlap: int
     top_k: int
@@ -35,20 +38,28 @@ class Settings:
 
     @property
     def llm_enabled(self) -> bool:
-        """Hay credenciales para redactar la respuesta con un LLM."""
+        """Whether credentials are available to compose answers with an LLM."""
         return bool(self.openai_api_key)
 
 
-def get_settings() -> Settings:
-    """Construye los ajustes leyendo el entorno en el momento de la llamada.
+def _flag(name: str, default: str = "false") -> bool:
+    """Read a boolean environment variable, tolerating the usual spellings."""
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
-    Se resuelve en cada llamada (y no en una constante de módulo) para que
-    los tests puedan modificar el entorno sin reimportar el paquete.
+
+def get_settings() -> Settings:
+    """Resolve settings from the environment at call time.
+
+    Reading on each call, rather than once at import, lets tests adjust the
+    environment without reloading the package.
     """
     return Settings(
         docs_dir=Path(os.getenv("RAG_DOCS_DIR", "data/sample")),
         backend=os.getenv("RAG_BACKEND", "tfidf").strip().lower(),
         embedding_model=os.getenv("RAG_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
+        reranker_model=os.getenv("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"),
+        rerank=_flag("RAG_RERANK"),
+        cache_dir=Path(os.getenv("RAG_CACHE_DIR", ".rag_cache")),
         chunk_size=int(os.getenv("RAG_CHUNK_SIZE", "500")),
         overlap=int(os.getenv("RAG_CHUNK_OVERLAP", "50")),
         top_k=int(os.getenv("RAG_TOP_K", "3")),

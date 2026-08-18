@@ -1,0 +1,12 @@
+{"question": "What does the acronym RAG stand for?", "expected": ["Retrieval-Augmented Generation"]}
+{"question": "Why do language models sometimes invent facts?", "expected": ["hallucination"]}
+{"question": "How is the knowledge of the system updated?", "expected": ["no retraining", "Replacing"]}
+{"question": "What are the stages of a basic pipeline?", "expected": ["four stages", "chunking"]}
+{"question": "Which method handles acronyms and product codes best?", "expected": ["TF-IDF", "exact matches"]}
+{"question": "How can a search engine understand synonyms?", "expected": ["Dense retrieval", "similar meaning"]}
+{"question": "How are several ranked lists combined?", "expected": ["Reciprocal Rank Fusion"]}
+{"question": "What is a second scoring pass over candidates called?", "expected": ["Cross-encoder"]}
+{"question": "Which metric rewards ranking the answer first?", "expected": ["Mean Reciprocal Rank", "MRR"]}
+{"question": "What is a fixed set of questions with known answers?", "expected": ["golden dataset"]}
+{"question": "Why does response time matter in production?", "expected": ["Latency", "unusable for interactive"]}
+{"question": "What proportion of relevant passages was returned?", "expected": ["Recall at k"]}

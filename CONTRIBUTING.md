@@ -1,9 +1,9 @@
-# Cómo contribuir
+# Contributing
 
-Gracias por el interés. Este proyecto prioriza el código legible y la
-calidad demostrable: todo lo que entra debe poder ejecutarse y medirse.
+Thanks for the interest. This project favours readable code and demonstrable
+quality: anything that lands should be runnable and measurable.
 
-## Preparar el entorno
+## Set up
 
 ```bash
 git clone https://github.com/chdavidfm/rag-agent-lab.git
@@ -12,53 +12,56 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-## Antes de abrir un pull request
+## Before opening a pull request
 
-Estas cuatro comprobaciones son las mismas que ejecuta la integración
-continua. Si pasan en local, pasarán en el servidor:
+These four checks are exactly what CI runs. If they pass locally, they pass on
+the server:
 
 ```bash
-ruff format .   # aplica el formato
+ruff format .   # apply formatting
 ruff check .    # lint
-mypy            # tipos
-pytest          # tests
+mypy            # types
+pytest          # test suite
 ```
 
-Los tests marcados como `integracion` descargan modelos reales y quedan
-fuera de la ejecución normal:
+Tests marked `integration` download real models and stay out of the default
+run:
 
 ```bash
-pytest -m integracion
+pytest -m integration
 ```
 
-## Calidad de la recuperación
+## Retrieval quality
 
-Cualquier cambio que afecte a cómo se buscan los fragmentos debe medirse.
-La integración continua rechaza los cambios que empeoren las métricas:
+Any change to how passages are found must be measured. CI rejects changes that
+degrade the metrics:
 
 ```bash
-rag-eval --min-hit-rate 0.85 --min-mrr 0.75
+rag-eval --min-hit-rate 0.90 --min-mrr 0.80
+rag-eval --compare              # every configuration, side by side
 ```
 
-Si tu cambio **mejora** los números, actualiza los umbrales en
-`.github/workflows/ci.yml` para consolidar la mejora.
+If your change **improves** the numbers, raise the thresholds in
+`.github/workflows/ci.yml` so the gain is locked in.
 
-## Criterios para el código
+## Code standards
 
-- Cada módulo tiene una responsabilidad y la explica en su docstring.
-- Las dependencias pesadas se importan de forma perezosa y viven en un
-  extra opcional, nunca en el núcleo.
-- Toda función pública lleva anotaciones de tipo.
-- Los comentarios explican **por qué**, no **qué**: el código ya dice qué.
+- Each module owns one responsibility and states it in its docstring.
+- Heavy dependencies are imported lazily and live behind an optional extra,
+  never in the core.
+- Every public function carries type annotations.
+- Comments explain **why**, not **what** — the code already says what.
+- Tests use injected doubles rather than network calls, so the suite stays
+  fast and deterministic.
 
-## Mensajes de commit
+## Commit messages
 
-Una primera línea en imperativo que quepa en 72 caracteres, y un cuerpo
-que explique el motivo del cambio cuando no sea evidente.
+An imperative first line under 72 characters, and a body explaining the reason
+whenever it is not obvious from the diff.
 
 ```
-Añade fusión híbrida de recuperadores
+Add hybrid retrieval fusion
 
-Las estrategias léxica y densa fallan en casos distintos. RRF las combina
-por posición, sin necesidad de calibrar escalas de puntuación.
+Lexical and dense search fail on different queries. RRF merges them by rank,
+so no score calibration is needed.
 ```

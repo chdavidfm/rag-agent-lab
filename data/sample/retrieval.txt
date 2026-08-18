@@ -1,0 +1,18 @@
+Retrieval-Augmented Generation
+
+Retrieval-Augmented Generation, commonly abbreviated as RAG, is a technique that
+combines two steps. First, the system retrieves the passages most relevant to a
+question from a document collection. Then a language model writes an answer
+grounded exclusively in those passages.
+
+The main benefit is factual grounding. A language model on its own may fabricate
+plausible but false statements, a failure mode known as hallucination. When the
+model is handed verified passages, its answer can be traced back to a source.
+
+Updating the knowledge of a RAG system requires no retraining at all. Replacing
+the underlying documents is enough, which makes the approach far cheaper to
+maintain than fine-tuning a model every time the information changes.
+
+A basic RAG pipeline has four stages: chunking the documents into passages,
+indexing those passages as numerical vectors, retrieving the closest ones to the
+question, and generating the final answer from them.

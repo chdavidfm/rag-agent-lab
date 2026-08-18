@@ -4,17 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rag-agent-lab"
-version = "0.4.0"
-description = "Agente RAG mínimo y didáctico: recupera y responde sobre tus documentos, 100% en local y sin claves."
+version = "0.5.0"
+description = "A compact, transparent RAG stack: retrieve and answer over your own documents, fully local and without API keys."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "David Mejía", email = "chdavidfm@gmail.com" }]
-keywords = ["rag", "llm", "retrieval", "nlp", "tf-idf", "fastapi"]
+keywords = ["rag", "llm", "retrieval", "reranking", "semantic-search", "fastapi"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
 ]
 dependencies = [
     "scikit-learn>=1.3",
@@ -40,6 +41,7 @@ rag-eval = "rag_agent.eval_cli:main"
 
 [project.urls]
 Repository = "https://github.com/chdavidfm/rag-agent-lab"
+Changelog = "https://github.com/chdavidfm/rag-agent-lab/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 packages = ["rag_agent"]
@@ -51,18 +53,18 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
-addopts = "-q -m 'not integracion'"
+addopts = "-q -m 'not integration'"
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
-    "integracion: usa modelos o servicios reales; se ejecuta con -m integracion",
+    "integration: exercises real models or services; run with -m integration",
 ]
 
 [tool.mypy]
-# Sin fijar python_version: mypy analiza con la versión del intérprete que lo
-# ejecuta. Fijarla a una versión distinta de la instalada hace que no pueda
-# leer los stubs de dependencias como numpy, compilados para intérpretes más
-# nuevos. La compatibilidad con 3.10 la garantizan la matriz de tests y ruff.
+# python_version is deliberately unset: mypy analyses with the interpreter
+# running it. Pinning it to a different version leaves it unable to read the
+# stubs of dependencies such as numpy, which target newer interpreters.
+# Compatibility with 3.10 is guaranteed by the test matrix and by ruff.
 files = ["rag_agent"]
 ignore_missing_imports = true
 warn_unused_ignores = true

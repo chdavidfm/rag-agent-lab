@@ -1,6 +1,0 @@
-{"question": "¿Qué significan las siglas RAG?", "expected": ["Retrieval-Augmented Generation"]}
-{"question": "¿Por qué un modelo de lenguaje inventa datos?", "expected": ["alucinar"]}
-{"question": "¿Cómo se actualiza el conocimiento del sistema?", "expected": ["cambiando los\ndocumentos", "sin reentrenar"]}
-{"question": "¿Qué es el chunking?", "expected": ["Trocear"]}
-{"question": "¿Cómo se comparan numéricamente los fragmentos?", "expected": ["TF-IDF", "embeddings"]}
-{"question": "¿Cuántas etapas tiene un RAG básico?", "expected": ["cuatro etapas"]}

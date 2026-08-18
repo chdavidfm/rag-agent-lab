@@ -1,7 +1,7 @@
-"""Interfaz de línea de comandos del agente RAG.
+"""Command-line interface for the RAG agent.
 
-rag-agent --docs data/sample --ask "¿Qué es RAG?"
-rag-agent --ask "¿Qué es RAG?" --backend embeddings
+rag-agent --ask "What does RAG stand for?"
+rag-agent --ask "How are ranked lists combined?" --backend hybrid --rerank
 """
 
 from __future__ import annotations
@@ -15,39 +15,54 @@ from .factory import BACKENDS
 from .pipeline import RagPipeline
 
 
-def _collect_docs(folder: Path) -> list[Path]:
-    """Lista los .txt de la carpeta, incluidas subcarpetas."""
+def collect_documents(folder: Path) -> list[Path]:
+    """List the .txt files under ``folder``, including nested directories."""
     return sorted(path for path in folder.rglob("*.txt") if path.is_file())
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Punto de entrada. Devuelve el código de salida del proceso."""
+    """Run the CLI. Returns the process exit code."""
     settings = get_settings()
-    parser = argparse.ArgumentParser(description="Agente RAG mínimo y didáctico")
-    parser.add_argument(
-        "--docs", default=str(settings.docs_dir), help="Carpeta con documentos .txt"
-    )
-    parser.add_argument("--ask", required=True, help="Pregunta a responder")
-    parser.add_argument("--k", type=int, default=settings.top_k, help="Fragmentos a recuperar")
+    parser = argparse.ArgumentParser(description="Ask questions about your own documents")
+    parser.add_argument("--docs", default=str(settings.docs_dir), help="Folder of .txt documents")
+    parser.add_argument("--ask", required=True, help="Question to answer")
+    parser.add_argument("--k", type=int, default=settings.top_k, help="Passages to retrieve")
     parser.add_argument(
         "--backend",
         default=settings.backend,
         choices=BACKENDS,
-        help="Estrategia de recuperación: léxica (tfidf) o semántica (embeddings)",
+        help="Retrieval strategy: lexical, semantic, or both fused",
     )
+    parser.add_argument(
+        "--rerank",
+        action="store_true",
+        default=settings.rerank,
+        help="Reorder candidates with a cross-encoder for higher precision",
+    )
+    parser.add_argument("--no-cache", action="store_true", help="Ignore the persisted index")
     args = parser.parse_args(argv)
 
-    docs = _collect_docs(Path(args.docs))
-    if not docs:
-        print(f"No se encontraron archivos .txt en: {args.docs}", file=sys.stderr)
+    documents = collect_documents(Path(args.docs))
+    if not documents:
+        print(f"No .txt files found in: {args.docs}", file=sys.stderr)
         return 2
+
+    from .factory import build_retriever
 
     pipeline = RagPipeline(
         chunk_size=settings.chunk_size,
         overlap=settings.overlap,
         k=args.k,
         backend=args.backend,
-    ).index_paths(docs)
+        retriever=build_retriever(
+            args.backend,
+            model_name=settings.embedding_model,
+            rerank=args.rerank,
+            reranker_model=settings.reranker_model,
+        ),
+        cache_dir=None if args.no_cache else settings.cache_dir,
+    ).index_paths(documents)
+
     print(pipeline.ask(args.ask))
     return 0
 

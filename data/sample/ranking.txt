@@ -1,0 +1,22 @@
+Ranking and Fusion Strategies
+
+Lexical retrieval compares the words shared between a query and a document.
+TF-IDF weights each term by how often it appears in one document against how
+rare it is across the collection. It excels at exact matches such as product
+codes, proper nouns and acronyms, but it cannot connect synonyms.
+
+Dense retrieval encodes text as vectors produced by a neural network, so that
+passages with similar meaning end up close together in the vector space. This
+finds a passage about a feline when the question mentions a cat, even though the
+two words never coincide.
+
+Reciprocal Rank Fusion merges several ranked lists without comparing their
+scores, which are not on the same scale. Each document receives the sum of one
+divided by a constant plus its position in every list. A passage ranked highly by
+both strategies rises to the top, while a passage found by only one still makes
+it into the results.
+
+Cross-encoder reranking is a second pass over a small candidate set. Instead of
+encoding query and passage separately, the model reads both together and scores
+their relevance directly, which is far more accurate but too slow to run over an
+entire collection.

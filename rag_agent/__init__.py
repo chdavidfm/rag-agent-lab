@@ -1,8 +1,7 @@
-"""rag-agent-lab: un agente RAG mínimo, honesto y didáctico.
+"""rag-agent-lab: a compact, transparent Retrieval-Augmented Generation stack.
 
-Construido en público mientras aprendo. El objetivo no es impresionar con
-magia, sino entender cada pieza de un sistema RAG: trocear, indexar,
-recuperar y generar.
+Every stage of the pipeline lives in its own module so the whole system can be
+read end to end: chunk, index, retrieve, rerank, generate.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.5.0"

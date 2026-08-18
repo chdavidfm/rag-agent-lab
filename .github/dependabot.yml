@@ -1,6 +1,6 @@
-# Dependabot vigila las dependencias y abre un pull request cuando aparece
-# una versión nueva. La CI decide si esa actualización es segura, así que el
-# proyecto se mantiene al día sin revisiones manuales.
+# Dependabot watches the dependencies and opens a pull request whenever a new
+# version appears. CI decides whether the update is safe, so the project stays
+# current without manual review.
 version: 2
 updates:
   - package-ecosystem: pip
@@ -11,9 +11,9 @@ updates:
     commit-message:
       prefix: "deps"
     groups:
-      # Un solo PR para las herramientas de desarrollo, en lugar de uno por
-      # cada una: menos ruido y una única revisión.
-      herramientas:
+      # One pull request for the development tooling instead of one each:
+      # less noise, a single review.
+      tooling:
         patterns: ["ruff", "mypy", "pytest*"]
 
   - package-ecosystem: github-actions

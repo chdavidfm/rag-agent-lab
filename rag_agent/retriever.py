@@ -1,110 +1,23 @@
-"""Recuperación de fragmentos relevantes.
+"""Retrieval of the passages most relevant to a query.
 
-Define el contrato que cumple cualquier recuperador (`Retriever`) y la
-implementación léxica basada en TF-IDF. Trabajar contra el contrato —y no
-contra una clase concreta— permite cambiar de estrategia (léxica, densa,
-híbrida) sin tocar el pipeline ni la API.
+Defines the contract every retriever satisfies (`Retriever`) and the lexical
+implementation built on TF-IDF. Programming against the contract, rather than a
+concrete class, lets the search strategy change without touching the pipeline,
+the API or the evaluation harness.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Palabras vacías del español. Aportan poco significado y, sin filtrarlas,
-# ensucian la búsqueda léxica: una pregunta como "¿Qué ES RAG?" podría
-# recuperar un documento solo por compartir el "es".
-SPANISH_STOPWORDS = [
-    "a",
-    "al",
-    "algo",
-    "algunas",
-    "algunos",
-    "ante",
-    "antes",
-    "como",
-    "con",
-    "contra",
-    "cual",
-    "cuando",
-    "de",
-    "del",
-    "desde",
-    "donde",
-    "durante",
-    "e",
-    "el",
-    "ella",
-    "ellos",
-    "en",
-    "entre",
-    "era",
-    "es",
-    "esa",
-    "ese",
-    "eso",
-    "esta",
-    "estas",
-    "este",
-    "esto",
-    "estos",
-    "hasta",
-    "hay",
-    "la",
-    "las",
-    "le",
-    "les",
-    "lo",
-    "los",
-    "más",
-    "me",
-    "mi",
-    "mucho",
-    "muy",
-    "nada",
-    "ni",
-    "no",
-    "nos",
-    "o",
-    "otra",
-    "otras",
-    "otro",
-    "otros",
-    "para",
-    "pero",
-    "poco",
-    "por",
-    "porque",
-    "que",
-    "qué",
-    "quien",
-    "se",
-    "sin",
-    "sobre",
-    "su",
-    "sus",
-    "también",
-    "tanto",
-    "te",
-    "todo",
-    "todos",
-    "tu",
-    "un",
-    "una",
-    "uno",
-    "unos",
-    "y",
-    "ya",
-    "yo",
-]
-
 
 @dataclass(frozen=True)
 class Hit:
-    """Un fragmento recuperado junto a su puntuación de relevancia."""
+    """A retrieved passage together with its relevance score."""
 
     text: str
     score: float
@@ -112,53 +25,68 @@ class Hit:
 
 @runtime_checkable
 class Retriever(Protocol):
-    """Contrato mínimo de un recuperador.
+    """The minimal contract of a retriever.
 
-    Cualquier objeto que sepa indexar una lista de fragmentos y devolver los
-    más parecidos a una consulta encaja aquí, sin necesidad de heredar.
+    Any object that can index a list of passages and return those closest to a
+    query fits here, with no inheritance required.
     """
 
     def index(self, docs: list[str]) -> Retriever:
-        """Prepara la estructura de búsqueda a partir de los fragmentos."""
+        """Build the search structure over ``docs``."""
         ...
 
     def search(self, query: str, k: int = 3) -> list[Hit]:
-        """Devuelve los `k` fragmentos más relevantes, de mayor a menor."""
+        """Return the ``k`` most relevant passages, best first."""
+        ...
+
+    def state_dict(self) -> dict[str, Any]:
+        """Return the state needed to restore the index without rebuilding it."""
+        ...
+
+    def load_state_dict(self, state: dict[str, Any]) -> Retriever:
+        """Restore a previously saved state."""
         ...
 
 
 class TfidfRetriever:
-    """Recuperador léxico: TF-IDF y similitud coseno.
+    """Lexical retrieval: TF-IDF vectors compared by cosine similarity.
 
-    Rápido, sin modelos que descargar y muy sólido cuando la pregunta
-    comparte vocabulario con los documentos. Su límite es que no entiende
-    sinónimos: para eso está el recuperador denso.
+    Fast, with no model to download, and dependable whenever the question
+    shares vocabulary with the documents. Its limit is that it cannot connect
+    synonyms; that is what the dense retriever is for.
     """
 
     name = "tfidf"
 
     def __init__(self) -> None:
-        self._vectorizer = TfidfVectorizer(stop_words=SPANISH_STOPWORDS)
+        self._vectorizer = TfidfVectorizer(stop_words="english")
         self._matrix = None
         self._docs: list[str] = []
 
     def index(self, docs: list[str]) -> TfidfRetriever:
-        """Construye el índice a partir de una lista de fragmentos."""
+        """Fit the vectoriser over ``docs`` and store the resulting matrix."""
         if not docs:
-            raise ValueError("No hay documentos que indexar")
+            raise ValueError("Cannot index an empty document list")
         self._docs = docs
         self._matrix = self._vectorizer.fit_transform(docs)
         return self
 
     def search(self, query: str, k: int = 3) -> list[Hit]:
-        """Devuelve los `k` fragmentos más parecidos a `query`."""
+        """Return the ``k`` passages sharing the most distinctive terms."""
         if self._matrix is None:
-            raise RuntimeError("Debes llamar a index() antes de search()")
-        query_vec = self._vectorizer.transform([query])
-        scores = cosine_similarity(query_vec, self._matrix)[0]
+            raise RuntimeError("index() must be called before search()")
+        scores = cosine_similarity(self._vectorizer.transform([query]), self._matrix)[0]
         ranked = sorted(
             zip(self._docs, scores, strict=True),
             key=lambda pair: pair[1],
             reverse=True,
         )
         return [Hit(text=text, score=float(score)) for text, score in ranked[:k]]
+
+    def state_dict(self) -> dict[str, Any]:
+        """Return the passages; refitting TF-IDF from them is inexpensive."""
+        return {"docs": self._docs}
+
+    def load_state_dict(self, state: dict[str, Any]) -> TfidfRetriever:
+        """Rebuild the index from stored passages."""
+        return self.index(list(state["docs"]))

@@ -1,6 +1,6 @@
-# Imagen del servicio HTTP del agente RAG.
-# Build:  docker build -t rag-agent-lab .
-# Run:    docker run --rm -p 8000:8000 rag-agent-lab
+# Container image for the HTTP service.
+#   docker build -t rag-agent-lab .
+#   docker run --rm -p 8000:8000 rag-agent-lab
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -8,15 +8,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Las dependencias se instalan antes de copiar el código: así el paso más
-# lento se reutiliza de la caché mientras solo cambie el código fuente.
+# Dependencies are installed before the source is copied, so the slowest layer
+# is reused from cache while only the code changes.
 COPY pyproject.toml README.md ./
 COPY rag_agent ./rag_agent
 RUN pip install --no-cache-dir ".[api]"
 
 COPY data ./data
 
-# Usuario sin privilegios: el proceso no necesita ser root.
+# Run as an unprivileged user: the service never needs root.
 RUN useradd --create-home --uid 1000 app && chown -R app:app /app
 USER app
 

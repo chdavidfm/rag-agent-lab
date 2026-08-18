@@ -1,9 +1,11 @@
-"""Tests de la capa de generación, en sus dos modos.
+"""Tests for answer composition, in both modes.
 
-El modo local debe ser siempre extractivo. El modo LLM se prueba con un
-cliente falso: se verifica el contrato (qué prompt se envía, qué modelo se
-pide, qué se devuelve) sin gastar una sola llamada real.
+Local mode must stay strictly extractive. LLM mode is exercised against a fake
+client, verifying the contract — which prompt is sent, which model is asked,
+what comes back — without spending a single real call.
 """
+
+import sys
 
 import pytest
 
@@ -12,112 +14,92 @@ from rag_agent.generate import PROMPT, answer
 
 
 @pytest.fixture(autouse=True)
-def sin_credenciales(monkeypatch):
-    """Modo local por defecto, aunque el entorno tenga una clave."""
+def without_credentials(monkeypatch):
+    """Default to local mode even if the environment carries a key."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
 
-def test_sin_contexto_lo_dice_en_lugar_de_inventar():
-    assert "No encontré" in answer("¿Qué es RAG?", [])
+def test_without_context_it_says_so_instead_of_inventing():
+    assert "No relevant information" in answer("What is RAG?", [])
 
 
-def test_la_respuesta_local_solo_contiene_los_fragmentos_dados():
-    fragmentos = ["El cielo es azul.", "El agua hierve a 100 grados."]
-    respuesta = answer("¿De qué color es el cielo?", fragmentos)
-    for fragmento in fragmentos:
-        assert fragmento in respuesta
+def test_the_local_answer_contains_only_the_given_passages():
+    passages = ["The sky is blue.", "Water boils at 100 degrees."]
+    composed = answer("What colour is the sky?", passages)
+    for passage in passages:
+        assert passage in composed
 
 
-# --- Modo LLM ------------------------------------------------------------
+# --- LLM mode -------------------------------------------------------------
 
 
 class FakeCompletions:
-    def __init__(self, registro):
-        self._registro = registro
+    def __init__(self, log, content="An answer written by the model."):
+        self._log = log
+        self._content = content
 
     def create(self, **kwargs):
-        self._registro.update(kwargs)
-
-        class Mensaje:
-            content = "Respuesta redactada por el modelo."
-
-        class Eleccion:
-            message = Mensaje()
-
-        class Respuesta:
-            choices = [Eleccion()]
-
-        return Respuesta()
+        self._log.update(kwargs)
+        message = type("Message", (), {"content": self._content})
+        choice = type("Choice", (), {"message": message()})
+        return type("Response", (), {"choices": [choice()]})()
 
 
 class FakeOpenAI:
-    """Doble del cliente de OpenAI que registra cómo se le llamó."""
+    """Stand-in for the OpenAI client that records how it was called."""
 
-    registro: dict = {}
+    log: dict = {}
+    content = "An answer written by the model."
 
     def __init__(self, **kwargs):
-        FakeOpenAI.registro = {"init": kwargs}
-        self.chat = type("Chat", (), {"completions": FakeCompletions(FakeOpenAI.registro)})()
+        type(self).log = {"init": kwargs}
+        self.chat = type(
+            "Chat", (), {"completions": FakeCompletions(type(self).log, self.content)}
+        )()
 
 
 @pytest.fixture
-def openai_falso(monkeypatch):
-    """Sustituye el import perezoso de 'openai' por el doble."""
-    modulo = type("ModuloFalso", (), {"OpenAI": FakeOpenAI})
-    monkeypatch.setitem(__import__("sys").modules, "openai", modulo)
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-prueba")
+def fake_openai(monkeypatch):
+    """Replace the lazily imported 'openai' module with the double."""
+    monkeypatch.setitem(sys.modules, "openai", type("Module", (), {"OpenAI": FakeOpenAI}))
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     return FakeOpenAI
 
 
-def test_con_credenciales_se_usa_el_llm(openai_falso):
-    assert answer("¿Qué es RAG?", ["contexto"]) == "Respuesta redactada por el modelo."
+def test_credentials_switch_to_the_llm(fake_openai):
+    assert answer("What is RAG?", ["context"]) == "An answer written by the model."
 
 
-def test_el_prompt_incluye_pregunta_y_contexto(openai_falso, monkeypatch):
-    monkeypatch.setenv("RAG_MODEL", "modelo-de-prueba")
-    answer("¿Qué es RAG?", ["fragmento uno", "fragmento dos"])
+def test_the_prompt_carries_the_question_and_every_passage(fake_openai, monkeypatch):
+    monkeypatch.setenv("RAG_MODEL", "test-model")
+    answer("What is RAG?", ["passage one", "passage two"])
 
-    registro = openai_falso.registro
-    enviado = registro["messages"][0]["content"]
-    assert "¿Qué es RAG?" in enviado
-    assert "fragmento uno" in enviado and "fragmento dos" in enviado
-    assert registro["model"] == "modelo-de-prueba"
-    assert registro["temperature"] == 0.2
-
-
-def test_el_prompt_prohibe_inventar():
-    assert "no inventes" in PROMPT.lower()
+    sent = fake_openai.log["messages"][0]["content"]
+    assert "What is RAG?" in sent
+    assert "passage one" in sent and "passage two" in sent
+    assert fake_openai.log["model"] == "test-model"
+    assert fake_openai.log["temperature"] == 0.2
 
 
-def test_una_respuesta_vacia_del_modelo_no_devuelve_none(openai_falso, monkeypatch):
-    class SinContenido(FakeOpenAI):
-        def __init__(self, **kwargs):
-            class Completions:
-                def create(self, **_):
-                    class Mensaje:
-                        content = None
-
-                    class Eleccion:
-                        message = Mensaje()
-
-                    return type("R", (), {"choices": [Eleccion()]})()
-
-            self.chat = type("Chat", (), {"completions": Completions()})()
-
-    monkeypatch.setitem(
-        __import__("sys").modules, "openai", type("M", (), {"OpenAI": SinContenido})
-    )
-    assert answer("q", ["contexto"]) == ""
+def test_the_prompt_forbids_inventing():
+    assert "never invent" in PROMPT.lower()
 
 
-def test_la_clave_y_la_url_llegan_al_cliente(openai_falso, monkeypatch):
-    monkeypatch.setenv("OPENAI_BASE_URL", "https://mi-endpoint.local/v1")
-    answer("q", ["contexto"])
-    init = openai_falso.registro["init"]
-    assert init["api_key"] == "sk-prueba"
-    assert init["base_url"] == "https://mi-endpoint.local/v1"
+def test_an_empty_completion_does_not_return_none(fake_openai, monkeypatch):
+    class Silent(FakeOpenAI):
+        content = None
+
+    monkeypatch.setitem(sys.modules, "openai", type("Module", (), {"OpenAI": Silent}))
+    assert answer("q", ["context"]) == ""
 
 
-def test_el_modulo_no_importa_openai_al_cargarse():
-    """El import debe ser perezoso: sin credenciales no se toca la librería."""
+def test_the_key_and_base_url_reach_the_client(fake_openai, monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://my-endpoint.local/v1")
+    answer("q", ["context"])
+    assert fake_openai.log["init"]["api_key"] == "sk-test"
+    assert fake_openai.log["init"]["base_url"] == "https://my-endpoint.local/v1"
+
+
+def test_the_module_does_not_import_openai_at_load_time():
+    """The import must stay lazy: no credentials, no library touched."""
     assert not hasattr(generate, "OpenAI")

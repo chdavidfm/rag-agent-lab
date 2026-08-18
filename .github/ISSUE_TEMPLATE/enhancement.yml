@@ -1,0 +1,22 @@
+name: Enhancement
+description: An idea to improve the project
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem it solves
+      description: Describe the need before the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: textarea
+    id: measurement
+    attributes:
+      label: How the improvement would be measured
+      description: If retrieval is affected, which metric should move.

@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Formato y lint
+    name: Format, lint and types
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,18 +21,18 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Instalar el proyecto
+      - name: Install the project
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Formato (ruff format)
+      - name: Format
         run: ruff format --check .
 
-      - name: Lint (ruff)
+      - name: Lint
         run: ruff check .
 
-      - name: Tipos (mypy)
+      - name: Types
         run: mypy
 
   tests:
@@ -50,16 +50,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Instalar el proyecto
+      - name: Install the project
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Tests (pytest)
+      - name: Run the test suite
         run: pytest
 
-  calidad-recuperacion:
-    name: Calidad de recuperación
+  retrieval-quality:
+    name: Retrieval quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,29 +69,29 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Instalar el proyecto
+      - name: Install the project
         run: |
           python -m pip install --upgrade pip
           pip install -e .
 
-      # Umbrales por debajo de la medida actual (Hit@3 100%, MRR 0.92).
-      # Un cambio que empeore la recuperación rompe el build.
-      - name: Evaluar el recuperador
-        run: rag-eval --min-hit-rate 0.85 --min-mrr 0.75
+      # Thresholds sit just below the current measurement (Hit@3 100%,
+      # MRR 0.875), so any change that degrades retrieval fails the build.
+      - name: Evaluate the retriever
+        run: rag-eval --min-hit-rate 0.90 --min-mrr 0.80
 
   docker:
-    name: Imagen Docker
+    name: Docker image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Construir la imagen
+      - name: Build the image
         run: docker build -t rag-agent-lab:ci .
 
-      - name: Comprobar que el servicio responde
+      - name: Check that the service answers
         run: |
           docker run -d --name rag -p 8000:8000 rag-agent-lab:ci
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -sf http://localhost:8000/health && break
             sleep 2
           done

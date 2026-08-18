@@ -1,31 +1,31 @@
-"""Composición de la respuesta a partir de los fragmentos recuperados.
+"""Composing the final answer from the retrieved passages.
 
-Dos modos, para que el proyecto funcione desde el minuto cero:
+Two modes, so the project works from the very first run:
 
-* **Sin credenciales** -> modo extractivo: devuelve los fragmentos más
-  relevantes. No inventa nada. Rápido, gratuito y offline.
-* **Con OPENAI_API_KEY** -> se pide a un LLM una respuesta redactada que se
-  apoya únicamente en el contexto recuperado.
+* **Without credentials** the answer is extractive: the most relevant passages
+  are returned verbatim. Nothing is invented, and nothing is downloaded.
+* **With OPENAI_API_KEY** a language model writes the answer, grounded strictly
+  in the retrieved context.
 """
 
 from __future__ import annotations
 
 from .config import get_settings
 
-PROMPT = """Eres un asistente que responde SOLO con la información del contexto.
-Si la respuesta no está en el contexto, dilo con claridad y no inventes.
+PROMPT = """You answer strictly from the provided context.
+If the answer is not in the context, say so plainly. Never invent information.
 
-Contexto:
+Context:
 {context}
 
-Pregunta: {question}
-Respuesta:"""
+Question: {question}
+Answer:"""
 
 
 def answer(question: str, context_chunks: list[str]) -> str:
-    """Responde a `question` usando `context_chunks` como única fuente."""
+    """Answer ``question`` using ``context_chunks`` as the only source."""
     if not context_chunks:
-        return "No encontré información relevante en los documentos."
+        return "No relevant information was found in the documents."
     settings = get_settings()
     if settings.llm_enabled:
         return _llm_answer(question, "\n\n---\n\n".join(context_chunks))
@@ -33,14 +33,14 @@ def answer(question: str, context_chunks: list[str]) -> str:
 
 
 def _extractive_answer(context_chunks: list[str]) -> str:
-    """Devuelve los fragmentos tal cual, sin interpretación ni añadidos."""
+    """Return the passages verbatim, with no interpretation added."""
     joined = "\n\n".join(f"• {chunk}" for chunk in context_chunks)
-    return "[modo local · sin LLM] Fragmentos más relevantes:\n\n" + joined
+    return "[local mode · no LLM] Most relevant passages:\n\n" + joined
 
 
 def _llm_answer(question: str, context: str) -> str:
-    """Pide al modelo una respuesta ceñida al contexto."""
-    # Import perezoso: 'openai' solo hace falta si hay credenciales.
+    """Ask the model for an answer confined to the given context."""
+    # Imported lazily: 'openai' is only needed when credentials are present.
     from openai import OpenAI
 
     settings = get_settings()

@@ -1,8 +1,8 @@
-name: Análisis de seguridad
+name: Security analysis
 
-# CodeQL busca vulnerabilidades reales en el código (inyección, secretos
-# expuestos, rutas peligrosas). Se ejecuta en cada cambio y una vez por
-# semana, porque aparecen reglas nuevas para código que no ha cambiado.
+# CodeQL looks for real vulnerabilities in the code: injection, exposed
+# secrets, unsafe paths. It runs on every change and once a week, because new
+# rules land for code that has not changed.
 on:
   push:
     branches: [main]
@@ -12,7 +12,7 @@ on:
     - cron: "0 6 * * 1"
 
 jobs:
-  analizar:
+  analyse:
     name: CodeQL
     runs-on: ubuntu-latest
     permissions:
@@ -21,11 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Preparar CodeQL
+      - name: Initialise CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: python
           queries: security-and-quality
 
-      - name: Analizar
+      - name: Analyse
         uses: github/codeql-action/analyze@v3

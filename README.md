@@ -1,50 +1,44 @@
 # rag-agent-lab
 
-> Un agente **RAG** (Retrieval-Augmented Generation) mínimo y didáctico.
-> Pregunta en lenguaje natural sobre tus propios documentos: **100 % local, sin claves de API**, con CLI, API REST y Docker.
+> A compact, transparent **RAG** (Retrieval-Augmented Generation) stack.
+> Ask questions in natural language about your own documents — **fully local, no API keys** — with a CLI, an HTTP API and Docker.
 
 <p align="left">
   <a href="https://github.com/chdavidfm/rag-agent-lab/actions/workflows/ci.yml"><img src="https://github.com/chdavidfm/rag-agent-lab/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/chdavidfm/rag-agent-lab/actions/workflows/codeql.yml"><img src="https://github.com/chdavidfm/rag-agent-lab/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
   <img src="https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-3776AB?logo=python&logoColor=white" alt="Python 3.10–3.12">
-  <img src="https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
-  <img src="https://img.shields.io/badge/lint%20%26%20format-ruff-261230?logo=ruff&logoColor=white" alt="Ruff">
+  <img src="https://img.shields.io/badge/typed-mypy-1f5082" alt="Typed with mypy">
   <img src="https://img.shields.io/badge/license-MIT-3da639" alt="MIT License">
 </p>
 
-## Qué es
+## What it is
 
-Le das una carpeta de documentos y una pregunta; el sistema recupera los
-fragmentos más relevantes y construye la respuesta a partir de ellos —nunca
-inventando fuera de ese contexto—. Está escrito para **entenderse de raíz**:
-cada etapa vive en su propio módulo, con el mínimo de dependencias y sin cajas
-negras.
+Point it at a folder of documents and ask a question. The system retrieves the
+most relevant passages and builds the answer from them — never inventing
+anything outside that context. It is written to be **read end to end**: every
+stage lives in its own module, with minimal dependencies and no black boxes.
 
 ```text
-   documentos.txt
-        │
-        ▼
-   trocear  ──►  indexar (TF-IDF)  ──►  recuperar top-k  ──►  generar  ──►  respuesta
-                                              ▲                    │
-                                          pregunta ────────────────┘
+  documents ──► chunk ──► index ──► retrieve ──► rerank ──► generate ──► answer
+                                        ▲          (optional)   │
+                                     question ──────────────────┘
 ```
 
-| Etapa | Módulo | Responsabilidad |
-|-------|--------|-----------------|
-| Trocear | `rag_agent/chunk.py` | Partir documentos largos en fragmentos con solape |
-| Indexar / Recuperar | `rag_agent/retriever.py` | Vectorizar con TF-IDF y ordenar por similitud coseno |
-| Generar | `rag_agent/generate.py` | Respuesta extractiva (local) o redactada por un LLM |
-| Orquestar | `rag_agent/pipeline.py` | Unir las etapas en un flujo único |
-| Recuperación densa | `rag_agent/embeddings.py` | Búsqueda por significado con embeddings |
-| Selección de estrategia | `rag_agent/factory.py` | Construye el recuperador elegido |
-| Evaluación | `rag_agent/evaluation.py` | Métricas Hit@k, MRR y Recall@k |
-| Fusión híbrida | `rag_agent/hybrid.py` | Combina estrategias con Reciprocal Rank Fusion |
-| Configuración | `rag_agent/config.py` | Ajustes desde el entorno y `.env` |
-| CLI | `rag_agent/cli.py` | Interfaz de línea de comandos |
-| API | `rag_agent/api.py` | Servicio HTTP con FastAPI |
+| Stage | Module | Responsibility |
+|-------|--------|----------------|
+| Chunk | `rag_agent/chunk.py` | Split documents into overlapping passages |
+| Lexical retrieval | `rag_agent/retriever.py` | TF-IDF vectors ranked by cosine similarity |
+| Dense retrieval | `rag_agent/embeddings.py` | Neural embeddings that match on meaning |
+| Fusion | `rag_agent/hybrid.py` | Merge rankings with Reciprocal Rank Fusion |
+| Reranking | `rag_agent/rerank.py` | Cross-encoder second pass over candidates |
+| Persistence | `rag_agent/store.py` | Content-addressed index cache |
+| Evaluation | `rag_agent/evaluation.py` | Hit@k, MRR and Recall@k |
+| Orchestration | `rag_agent/pipeline.py` | Wire the stages into one flow |
+| Interfaces | `rag_agent/cli.py`, `api.py` | Command line and HTTP |
 
-## Instalación
+## Install
 
-Requiere Python 3.10 o superior.
+Requires Python 3.10 or newer.
 
 ```bash
 git clone https://github.com/chdavidfm/rag-agent-lab.git
@@ -52,96 +46,137 @@ cd rag-agent-lab
 pip install -e .
 ```
 
-## Uso desde la terminal
+## Use it
 
 ```bash
-rag-agent --docs data/sample --ask "¿Qué es RAG?"
+rag-agent --ask "What does RAG stand for?"
 ```
 
-Sin `OPENAI_API_KEY` el agente responde en **modo local**: devuelve los
-fragmentos más relevantes, sin inventar nada. Es rápido, gratuito y offline.
+Without `OPENAI_API_KEY` the agent answers in **local mode**: it returns the
+most relevant passages verbatim and invents nothing. Fast, free and offline.
 
-## Dos formas de buscar
+## Retrieval strategies
 
-| Backend | Cómo compara | Cuándo conviene |
-|---------|--------------|-----------------|
-| `tfidf` *(por defecto)* | Palabras compartidas entre pregunta y texto | Instantáneo, sin descargas, sólido con términos exactos y siglas |
-| `embeddings` | Significado, mediante vectores neuronales | Encuentra "felino" al preguntar por un gato, aunque la palabra no aparezca |
-| `hybrid` | Fusiona ambas listas por posición (RRF) | Cubre el punto ciego de cada una; es lo que usan los motores de búsqueda modernos |
+| Backend | How it compares | When it wins |
+|---------|-----------------|--------------|
+| `tfidf` *(default)* | Words shared between query and passage | Instant, no downloads, strong on exact terms and acronyms |
+| `embeddings` | Meaning, through neural vectors | Finds a passage about a feline when you ask about a cat |
+| `hybrid` | Fuses both rankings by position | Covers each strategy's blind spot |
 
 ```bash
 pip install -e ".[embeddings]"
-rag-agent --ask "¿Dónde descansa el felino?" --backend hybrid
+rag-agent --ask "Where does the feline rest?" --backend hybrid --rerank
 ```
 
-El modelo se carga de forma perezosa: quien use el modo léxico nunca
-descarga PyTorch.
+Models load lazily: anyone staying on the lexical backend never downloads
+PyTorch.
 
-### Por qué la fusión funciona
+### Why fusion works
 
-Las puntuaciones de ambas estrategias no son comparables —un 0,7 de coseno
-no equivale a un 0,7 de TF-IDF—, así que **Reciprocal Rank Fusion** las
-ignora y combina solo las posiciones:
+The two strategies produce scores on incompatible scales — a cosine of 0.7 is
+nothing like a TF-IDF of 0.7. **Reciprocal Rank Fusion** sidesteps calibration
+entirely by discarding the scores and merging only the positions:
 
 ```text
-score(d) = Σ  1 / (60 + posición de d en la lista i)
+score(d) = Σ  1 / (60 + rank of d in list i)
 ```
 
-Un fragmento bien situado por ambas sube al primer puesto; uno que solo una
-estrategia considera relevante entra igualmente, algo más abajo. No hay
-escalas que calibrar, y por eso es la técnica de referencia
-(Cormack et al., SIGIR 2009).
+A passage ranked highly by both rises to the top; one found by a single
+strategy still makes the cut, a little lower. Nothing needs tuning, which is
+why modern search engines rely on it (Cormack et al., SIGIR 2009).
 
-## Medir la calidad de la recuperación
+### Why reranking helps
 
-Cambiar de estrategia solo tiene sentido si se puede demostrar la mejora.
-El proyecto incluye un banco de pruebas sobre preguntas con respuesta
-conocida (`data/eval/preguntas.jsonl`):
+First-stage retrieval encodes the query and each passage **separately** — that
+is what makes it fast, since passages are embedded once, ahead of time. The
+cost is precision: the model never sees the pair together.
+
+A **cross-encoder** reads query and passage jointly and scores their relevance
+directly. Far more accurate, far too slow to run over a whole collection. So
+production systems use both stages:
+
+```text
+query ──► retrieve top 15 (fast) ──► rerank to top 3 (accurate) ──► answer
+```
 
 ```bash
-rag-eval --docs data/sample --cases data/eval/preguntas.jsonl
+rag-agent --ask "What is the capital of France?" --rerank
+```
+
+## Measuring quality
+
+Switching strategies is only worth it if the improvement can be demonstrated.
+The repository ships a golden set of questions with known answers:
+
+```bash
+rag-eval
 ```
 
 ```text
-Backend: tfidf   ·   casos: 6   ·   k = 3
-────────────────────────────────────────────────────
-  Hit@3     100.0%   preguntas con algún acierto
-  MRR         0.917   calidad del orden de resultados
-  Recall@3   83.3%   cobertura de lo relevante
+Backend: tfidf   ·   12 cases   ·   k = 3
+────────────────────────────────────────────────────────
+  Hit@3      100.0%   questions with any relevant passage
+  MRR         0.875   how high the first correct answer ranks
+  Recall@3    75.0%   coverage of everything relevant
+────────────────────────────────────────────────────────
 ```
 
-| Métrica | Qué mide |
-|---------|----------|
-| **Hit@k** | Proporción de preguntas para las que se recuperó algo relevante |
-| **MRR** | Posición del primer acierto: premia colocar lo relevante arriba |
-| **Recall@k** | Qué parte de todo lo relevante llegó a recuperarse |
+| Metric | What it captures |
+|--------|------------------|
+| **Hit@k** | Share of questions where anything relevant surfaced |
+| **MRR** | Position of the first correct passage — rewards ranking it first |
+| **Recall@k** | Share of all relevant material that was retrieved |
 
-Los umbrales convierten la calidad en una condición de integración
-continua: si una modificación empeora la recuperación, el build falla.
+Compare every configuration side by side:
 
 ```bash
-rag-eval --min-hit-rate 0.85 --min-mrr 0.75   # devuelve 1 si no se alcanzan
+rag-eval --compare
 ```
 
-## Uso como API
+Thresholds turn quality into a CI condition: if a change degrades retrieval,
+the build fails.
+
+```bash
+rag-eval --min-hit-rate 0.90 --min-mrr 0.80   # exits 1 when unmet
+```
+
+## Index persistence
+
+Embedding a corpus is the slowest part of the pipeline and produces identical
+vectors whenever the documents are unchanged, so the built index is cached to
+disk. A cold start drops from minutes to milliseconds.
+
+The cache is **content-addressed**: its key is a digest of the documents' bytes
+and of the settings that shaped the index. Edit a document, change the chunk
+size or switch backend, and the key changes — a stale index is never served.
+
+Nothing is written with `pickle`. Loading a pickle executes arbitrary code, and
+a cache file is precisely the artefact an attacker would try to replace, so
+passages travel as JSON and vectors as a NumPy archive: both inert.
+
+```bash
+rag-agent --ask "..." --no-cache    # ignore the persisted index
+```
+
+## HTTP API
 
 ```bash
 pip install -e ".[api]"
 uvicorn rag_agent.api:app --reload
 ```
 
-El índice se construye una sola vez al arrancar y se reutiliza en cada
-petición. Documentación interactiva en `http://localhost:8000/docs`.
+The index is built once at startup and reused for every request. Interactive
+documentation at `http://localhost:8000/docs`.
 
-| Método | Ruta | Descripción |
+| Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Estado del servicio, documentos indexados y backend en uso |
-| `POST` | `/ask` | Pregunta al agente; devuelve respuesta y fragmentos usados |
+| `GET` | `/health` | Service status, corpus size, backend and cache state |
+| `POST` | `/ask` | Ask a question; returns the answer and its supporting passages |
 
 ```bash
 curl -X POST http://localhost:8000/ask \
   -H 'Content-Type: application/json' \
-  -d '{"question": "¿Qué es RAG?", "k": 3}'
+  -d '{"question": "What does RAG stand for?", "k": 3}'
 ```
 
 ```json
@@ -151,9 +186,6 @@ curl -X POST http://localhost:8000/ask \
 }
 ```
 
-La variable `RAG_DOCS_DIR` define qué carpeta se indexa (por defecto
-`data/sample`).
-
 ## Docker
 
 ```bash
@@ -161,73 +193,74 @@ docker build -t rag-agent-lab .
 docker run --rm -p 8000:8000 rag-agent-lab
 ```
 
-La imagen ejecuta el servicio con un usuario sin privilegios e incluye un
-`HEALTHCHECK`. Para servir tus propios documentos:
+The image runs as an unprivileged user and ships a `HEALTHCHECK`. To serve your
+own documents:
 
 ```bash
 docker run --rm -p 8000:8000 \
-  -v "$PWD/mis-docs:/app/docs:ro" -e RAG_DOCS_DIR=/app/docs \
+  -v "$PWD/my-docs:/app/docs:ro" -e RAG_DOCS_DIR=/app/docs \
   rag-agent-lab
 ```
 
-## Modo LLM (opcional)
+## Answer generation with an LLM
 
-Para que un modelo redacte la respuesta apoyándose en el contexto recuperado:
+To have a model write the answer, grounded in the retrieved context:
 
 ```bash
 pip install -e ".[llm]"
-cp .env.example .env        # y añade tu OPENAI_API_KEY
+cp .env.example .env        # then set OPENAI_API_KEY
 ```
 
-`OPENAI_BASE_URL` permite apuntar a cualquier endpoint compatible con la API de
-OpenAI (Ollama, Groq, etc.).
+`OPENAI_BASE_URL` points at any OpenAI-compatible endpoint (Ollama, Groq, …).
+Every setting is documented in [`.env.example`](.env.example).
 
-## Desarrollo
+## Development
 
 ```bash
 pip install -e ".[dev]"
-ruff format --check .   # formato
-ruff check .            # lint (E, F, I, UP, B)
-mypy                    # tipos
-pytest                  # tests
-pytest -m integracion   # tests con modelos reales (descarga)
+ruff format --check .   # formatting
+ruff check .            # linting (E, F, I, UP, B)
+mypy                    # types
+pytest                  # test suite
+pytest -m integration   # tests against real models (downloads)
 ```
 
-La integración continua ejecuta formato, lint y tipos; la batería de tests
-sobre **Python 3.10, 3.11 y 3.12**; la evaluación de calidad con umbrales; y
-construye la imagen Docker comprobando que el servicio responde.
+CI runs formatting, linting and types; the suite across **Python 3.10, 3.11 and
+3.12**; the quality thresholds; and a Docker build that verifies the service
+answers.
 
-Además, el repositorio se mantiene solo:
+The repository also maintains itself:
 
-| Automatización | Qué hace |
-|----------------|----------|
-| **CodeQL** | Analiza el código en busca de vulnerabilidades, en cada cambio y cada semana |
-| **Dependabot** | Abre pull requests con las dependencias actualizadas; la CI decide si son seguras |
-| **Evaluación semanal** | Vuelve a medir la calidad y abre una incidencia si decae |
+| Automation | What it does |
+|------------|--------------|
+| **CodeQL** | Scans for vulnerabilities on every change and weekly |
+| **Dependabot** | Opens pull requests with updated dependencies; CI decides if they are safe |
+| **Weekly evaluation** | Re-measures quality and opens an issue if it drops |
 
-Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para el flujo de trabajo y
-[SECURITY.md](SECURITY.md) para comunicar una vulnerabilidad.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
+[SECURITY.md](SECURITY.md) for reporting a vulnerability.
 
 ## Roadmap
 
-- [x] Pipeline RAG completo, en local y sin claves
-- [x] Empaquetado instalable, tests y CI en verde
-- [x] API REST con FastAPI y despliegue en Docker
-- [x] Embeddings neuronales como alternativa a TF-IDF
-- [x] Evaluación con métricas estándar y umbrales en CI
-- [x] Búsqueda híbrida con Reciprocal Rank Fusion
-- [x] Automatización: CodeQL, Dependabot y evaluación programada
-- [ ] Almacén vectorial persistente (FAISS / Chroma)
-- [ ] Ingesta de PDF y Markdown además de texto plano
-- [ ] Reordenación con cross-encoder sobre los candidatos recuperados
+- [x] End-to-end RAG pipeline, local and key-free
+- [x] Installable package, test suite and green CI
+- [x] HTTP API and Docker deployment
+- [x] Dense retrieval with neural embeddings
+- [x] Evaluation with standard metrics and CI thresholds
+- [x] Hybrid search through Reciprocal Rank Fusion
+- [x] Cross-encoder reranking
+- [x] Content-addressed index cache
+- [ ] Persistent vector store (FAISS / Chroma)
+- [ ] PDF and Markdown ingestion
+- [ ] Streaming answers over the API
 
-## Sobre el proyecto
+## About
 
-Laboratorio de aprendizaje construido en público por
-[David Mejía](https://github.com/chdavidfm) mientras profundiza en IA aplicada.
-Deliberadamente pequeño para poder razonar cada decisión; pensado para crecer
-etapa a etapa siguiendo el roadmap.
+A learning laboratory built in public by
+[David Mejía](https://github.com/chdavidfm) while going deep on applied AI.
+Deliberately small, so every decision can be reasoned about; designed to grow
+one stage at a time.
 
-## Licencia
+## Licence
 
 [MIT](LICENSE).

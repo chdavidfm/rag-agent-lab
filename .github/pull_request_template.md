@@ -1,14 +1,14 @@
-## Qué cambia
+## What changes
 
-<!-- Una o dos frases sobre el cambio y el motivo. -->
+<!-- One or two sentences on the change and why it is needed. -->
 
-## Cómo comprobarlo
+## How to verify
 
-<!-- Pasos concretos para verificarlo. -->
+<!-- Concrete steps a reviewer can follow. -->
 
-## Comprobaciones
+## Checks
 
-- [ ] `ruff format .` y `ruff check .` sin avisos
-- [ ] `mypy` sin errores
-- [ ] `pytest` en verde
-- [ ] `rag-eval` no empeora las métricas (si afecta a la recuperación)
+- [ ] `ruff format .` and `ruff check .` are clean
+- [ ] `mypy` reports no errors
+- [ ] `pytest` passes
+- [ ] `rag-eval` does not regress the metrics (if retrieval is affected)

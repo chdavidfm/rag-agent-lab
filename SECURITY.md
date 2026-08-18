@@ -1,25 +1,27 @@
-# Política de seguridad
+# Security policy
 
-## Versiones con soporte
+## Supported versions
 
-Se da soporte a la última versión publicada en la rama `main`.
+The latest release on the `main` branch is supported.
 
-## Comunicar una vulnerabilidad
+## Reporting a vulnerability
 
-Si encuentras un fallo de seguridad, **no abras una incidencia pública**.
-Escribe a **chdavidfm@gmail.com** con:
+If you find a security issue, **please do not open a public issue**. Email
+**chdavidfm@gmail.com** with:
 
-- una descripción del problema y de su impacto,
-- los pasos para reproducirlo,
-- la versión o el commit afectado.
+- a description of the problem and its impact,
+- the steps to reproduce it,
+- the affected version or commit.
 
-Recibirás confirmación en un plazo de 72 horas y una valoración del
-alcance en un máximo de 7 días.
+You will receive an acknowledgement within 72 hours and an assessment of the
+scope within 7 days.
 
-## Notas sobre este proyecto
+## Design notes
 
-- Las credenciales se leen del entorno o de un archivo `.env` que **nunca**
-  se versiona: está excluido en `.gitignore`.
-- El modo por defecto funciona sin credenciales y sin salida a internet.
-- El contenedor ejecuta el servicio con un usuario sin privilegios.
-- El análisis de CodeQL se ejecuta en cada cambio y semanalmente.
+- Credentials are read from the environment or a `.env` file that is **never**
+  committed; it is excluded in `.gitignore`.
+- The default mode runs without credentials and without network access.
+- The index cache stores JSON and NumPy archives, never `pickle`, so loading a
+  cache file cannot execute code.
+- The container image runs the service as an unprivileged user.
+- CodeQL analyses the code on every change and weekly.
