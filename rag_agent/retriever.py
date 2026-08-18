@@ -1,22 +1,22 @@
-"""Recuperar los fragmentos más relevantes con TF-IDF + similitud coseno.
+"""Recuperación de fragmentos relevantes.
 
-Funciona 100% en local, sin claves de API ni modelos pesados. Es el corazón
-del RAG: dada una pregunta, encontrar qué trozos del corpus se le parecen más.
-Más adelante se puede sustituir TF-IDF por embeddings neuronales sin cambiar
-el resto del sistema.
+Define el contrato que cumple cualquier recuperador (`Retriever`) y la
+implementación léxica basada en TF-IDF. Trabajar contra el contrato —y no
+contra una clase concreta— permite cambiar de estrategia (léxica, densa,
+híbrida) sin tocar el pipeline ni la API.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Palabras vacías del español ('stopwords'). Aportan poco significado y, si no
-# se filtran, ensucian la búsqueda: una pregunta como "¿Qué ES RAG?" podría
-# recuperar un documento solo por compartir el "es". Filtrarlas mejora mucho la
-# relevancia. (Lección aprendida a base de un test que falló, no en la teoría.)
+# Palabras vacías del español. Aportan poco significado y, sin filtrarlas,
+# ensucian la búsqueda léxica: una pregunta como "¿Qué ES RAG?" podría
+# recuperar un documento solo por compartir el "es".
 SPANISH_STOPWORDS = [
     "a",
     "al",
@@ -102,7 +102,7 @@ SPANISH_STOPWORDS = [
 ]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Hit:
     """Un fragmento recuperado junto a su puntuación de relevancia."""
 
@@ -110,8 +110,32 @@ class Hit:
     score: float
 
 
+@runtime_checkable
+class Retriever(Protocol):
+    """Contrato mínimo de un recuperador.
+
+    Cualquier objeto que sepa indexar una lista de fragmentos y devolver los
+    más parecidos a una consulta encaja aquí, sin necesidad de heredar.
+    """
+
+    def index(self, docs: list[str]) -> Retriever:
+        """Prepara la estructura de búsqueda a partir de los fragmentos."""
+        ...
+
+    def search(self, query: str, k: int = 3) -> list[Hit]:
+        """Devuelve los `k` fragmentos más relevantes, de mayor a menor."""
+        ...
+
+
 class TfidfRetriever:
-    """Índice sencillo basado en TF-IDF."""
+    """Recuperador léxico: TF-IDF y similitud coseno.
+
+    Rápido, sin modelos que descargar y muy sólido cuando la pregunta
+    comparte vocabulario con los documentos. Su límite es que no entiende
+    sinónimos: para eso está el recuperador denso.
+    """
+
+    name = "tfidf"
 
     def __init__(self) -> None:
         self._vectorizer = TfidfVectorizer(stop_words=SPANISH_STOPWORDS)
@@ -127,7 +151,7 @@ class TfidfRetriever:
         return self
 
     def search(self, query: str, k: int = 3) -> list[Hit]:
-        """Devuelve los ``k`` fragmentos más parecidos a ``query``."""
+        """Devuelve los `k` fragmentos más parecidos a `query`."""
         if self._matrix is None:
             raise RuntimeError("Debes llamar a index() antes de search()")
         query_vec = self._vectorizer.transform([query])

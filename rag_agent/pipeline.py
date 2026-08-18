@@ -1,9 +1,10 @@
-"""Orquestar el flujo RAG completo.
+"""Orquestación del flujo RAG completo.
 
 ingesta -> trocear -> indexar -> recuperar -> generar
 
-Esta clase junta las piezas de los otros módulos en un único objeto fácil
-de usar tanto desde la CLI como desde otro programa.
+Reúne las etapas en un único objeto, igual de cómodo desde la CLI, desde la
+API o desde el banco de evaluación. El recuperador es intercambiable: el
+pipeline solo conoce el contrato `Retriever`.
 """
 
 from __future__ import annotations
@@ -11,25 +12,48 @@ from __future__ import annotations
 from pathlib import Path
 
 from .chunk import chunk_text
+from .factory import build_retriever
 from .generate import answer
-from .retriever import Hit, TfidfRetriever
+from .retriever import Hit, Retriever
 
 
 class RagPipeline:
-    """Pipeline RAG mínimo, de principio a fin."""
+    """Pipeline RAG de principio a fin."""
 
-    def __init__(self, chunk_size: int = 500, overlap: int = 50, k: int = 3) -> None:
+    def __init__(
+        self,
+        chunk_size: int = 500,
+        overlap: int = 50,
+        k: int = 3,
+        retriever: Retriever | None = None,
+        backend: str = "tfidf",
+    ) -> None:
+        """Crea el pipeline.
+
+        Args:
+            chunk_size: Tamaño de cada fragmento, en caracteres.
+            overlap: Solape entre fragmentos consecutivos.
+            k: Fragmentos a recuperar por consulta.
+            retriever: Recuperador ya construido; tiene prioridad sobre
+                `backend` y permite inyectar uno propio o un doble de test.
+            backend: Estrategia a construir si no se pasa `retriever`.
+        """
         self.chunk_size = chunk_size
         self.overlap = overlap
         self.k = k
-        self.retriever = TfidfRetriever()
+        self.retriever = retriever if retriever is not None else build_retriever(backend)
 
     def index_paths(self, paths: list[Path]) -> RagPipeline:
         """Lee y trocea cada archivo, y construye el índice de recuperación."""
         chunks: list[str] = []
         for path in paths:
-            text = Path(path).read_text(encoding="utf-8")
+            try:
+                text = Path(path).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                raise ValueError(f"No se pudo leer el documento {path}: {exc}") from exc
             chunks.extend(chunk_text(text, self.chunk_size, self.overlap))
+        if not chunks:
+            raise ValueError("Los documentos no contienen texto que indexar")
         self.retriever.index(chunks)
         return self
 

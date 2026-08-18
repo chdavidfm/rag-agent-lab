@@ -9,19 +9,14 @@ petición: indexar es caro y el corpus no cambia mientras el servicio vive.
 
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from .config import get_settings
 from .pipeline import RagPipeline
-
-# Carpeta de documentos a indexar. Configurable por entorno para que el mismo
-# contenedor sirva cualquier corpus sin reconstruir la imagen.
-DOCS_DIR = Path(os.getenv("RAG_DOCS_DIR", "data/sample"))
 
 _state: dict[str, Any] = {}
 
@@ -29,18 +24,25 @@ _state: dict[str, Any] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Construye el índice al arrancar y lo libera al apagar."""
-    docs = sorted(path for path in DOCS_DIR.rglob("*.txt") if path.is_file())
+    settings = get_settings()
+    docs = sorted(path for path in settings.docs_dir.rglob("*.txt") if path.is_file())
     if not docs:
-        raise RuntimeError(f"No se encontraron documentos .txt en: {DOCS_DIR}")
-    _state["pipeline"] = RagPipeline().index_paths(docs)
+        raise RuntimeError(f"No se encontraron documentos .txt en: {settings.docs_dir}")
+    _state["pipeline"] = RagPipeline(
+        chunk_size=settings.chunk_size,
+        overlap=settings.overlap,
+        k=settings.top_k,
+        backend=settings.backend,
+    ).index_paths(docs)
     _state["documents"] = len(docs)
+    _state["backend"] = settings.backend
     yield
     _state.clear()
 
 
 app = FastAPI(
     title="rag-agent-lab",
-    version="0.1.0",
+    version="0.3.0",
     summary="Pregunta en lenguaje natural sobre tus propios documentos.",
     lifespan=lifespan,
 )
@@ -70,7 +72,11 @@ class AskResponse(BaseModel):
 @app.get("/health", summary="Estado del servicio")
 def health() -> dict[str, Any]:
     """Comprueba que el índice está cargado y listo para responder."""
-    return {"status": "ok", "documents": _state.get("documents", 0)}
+    return {
+        "status": "ok",
+        "documents": _state.get("documents", 0),
+        "backend": _state.get("backend", "tfidf"),
+    }
 
 
 @app.post("/ask", response_model=AskResponse, summary="Preguntar al agente")

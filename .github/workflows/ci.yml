@@ -32,6 +32,9 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Tipos (mypy)
+        run: mypy
+
   tests:
     name: Tests · Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -54,6 +57,27 @@ jobs:
 
       - name: Tests (pytest)
         run: pytest
+
+  calidad-recuperacion:
+    name: Calidad de recuperación
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar el proyecto
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # Umbrales por debajo de la medida actual (Hit@3 100%, MRR 0.92).
+      # Un cambio que empeore la recuperación rompe el build.
+      - name: Evaluar el recuperador
+        run: rag-eval --min-hit-rate 0.85 --min-mrr 0.75
 
   docker:
     name: Imagen Docker

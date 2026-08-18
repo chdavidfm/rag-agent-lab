@@ -34,6 +34,10 @@ negras.
 | Indexar / Recuperar | `rag_agent/retriever.py` | Vectorizar con TF-IDF y ordenar por similitud coseno |
 | Generar | `rag_agent/generate.py` | Respuesta extractiva (local) o redactada por un LLM |
 | Orquestar | `rag_agent/pipeline.py` | Unir las etapas en un flujo único |
+| Recuperación densa | `rag_agent/embeddings.py` | Búsqueda por significado con embeddings |
+| Selección de estrategia | `rag_agent/factory.py` | Construye el recuperador elegido |
+| Evaluación | `rag_agent/evaluation.py` | Métricas Hit@k, MRR y Recall@k |
+| Configuración | `rag_agent/config.py` | Ajustes desde el entorno y `.env` |
 | CLI | `rag_agent/cli.py` | Interfaz de línea de comandos |
 | API | `rag_agent/api.py` | Servicio HTTP con FastAPI |
 
@@ -56,6 +60,52 @@ rag-agent --docs data/sample --ask "¿Qué es RAG?"
 Sin `OPENAI_API_KEY` el agente responde en **modo local**: devuelve los
 fragmentos más relevantes, sin inventar nada. Es rápido, gratuito y offline.
 
+## Dos formas de buscar
+
+| Backend | Cómo compara | Cuándo conviene |
+|---------|--------------|-----------------|
+| `tfidf` *(por defecto)* | Palabras compartidas entre pregunta y texto | Instantáneo, sin descargas, sólido con vocabulario común |
+| `embeddings` | Significado, mediante vectores neuronales | Encuentra "felino" al preguntar por un gato, aunque la palabra no aparezca |
+
+```bash
+pip install -e ".[embeddings]"
+rag-agent --ask "¿Dónde descansa el felino?" --backend embeddings
+```
+
+El modelo se carga de forma perezosa: quien use el modo léxico nunca
+descarga PyTorch.
+
+## Medir la calidad de la recuperación
+
+Cambiar de estrategia solo tiene sentido si se puede demostrar la mejora.
+El proyecto incluye un banco de pruebas sobre preguntas con respuesta
+conocida (`data/eval/preguntas.jsonl`):
+
+```bash
+rag-eval --docs data/sample --cases data/eval/preguntas.jsonl
+```
+
+```text
+Backend: tfidf   ·   casos: 6   ·   k = 3
+────────────────────────────────────────────────────
+  Hit@3     100.0%   preguntas con algún acierto
+  MRR         0.917   calidad del orden de resultados
+  Recall@3   83.3%   cobertura de lo relevante
+```
+
+| Métrica | Qué mide |
+|---------|----------|
+| **Hit@k** | Proporción de preguntas para las que se recuperó algo relevante |
+| **MRR** | Posición del primer acierto: premia colocar lo relevante arriba |
+| **Recall@k** | Qué parte de todo lo relevante llegó a recuperarse |
+
+Los umbrales convierten la calidad en una condición de integración
+continua: si una modificación empeora la recuperación, el build falla.
+
+```bash
+rag-eval --min-hit-rate 0.85 --min-mrr 0.75   # devuelve 1 si no se alcanzan
+```
+
 ## Uso como API
 
 ```bash
@@ -68,7 +118,7 @@ petición. Documentación interactiva en `http://localhost:8000/docs`.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `GET` | `/health` | Estado del servicio y número de documentos indexados |
+| `GET` | `/health` | Estado del servicio, documentos indexados y backend en uso |
 | `POST` | `/ask` | Pregunta al agente; devuelve respuesta y fragmentos usados |
 
 ```bash
@@ -121,22 +171,25 @@ OpenAI (Ollama, Groq, etc.).
 pip install -e ".[dev]"
 ruff format --check .   # formato
 ruff check .            # lint (E, F, I, UP, B)
+mypy                    # tipos
 pytest                  # tests
+pytest -m integracion   # tests con modelos reales (descarga)
 ```
 
-La integración continua ejecuta formato y lint, la batería de tests sobre
-**Python 3.10, 3.11 y 3.12**, y construye la imagen Docker comprobando que el
-servicio responde.
+La integración continua ejecuta formato, lint y tipos; la batería de tests
+sobre **Python 3.10, 3.11 y 3.12**; la evaluación de calidad con umbrales; y
+construye la imagen Docker comprobando que el servicio responde.
 
 ## Roadmap
 
 - [x] Pipeline RAG completo, en local y sin claves
 - [x] Empaquetado instalable, tests y CI en verde
 - [x] API REST con FastAPI y despliegue en Docker
-- [ ] Embeddings neuronales (sentence-transformers) como alternativa a TF-IDF
+- [x] Embeddings neuronales como alternativa a TF-IDF
+- [x] Evaluación con métricas estándar y umbrales en CI
 - [ ] Almacén vectorial persistente (FAISS / Chroma)
 - [ ] Ingesta de PDF y Markdown además de texto plano
-- [ ] Evaluación automática de la calidad de las respuestas
+- [ ] Búsqueda híbrida: combinar señal léxica y semántica
 
 ## Sobre el proyecto
 
