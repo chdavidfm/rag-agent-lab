@@ -1,0 +1,22 @@
+name: Propuesta de mejora
+description: Una idea para el proyecto
+labels: ["mejora"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema resuelve
+      description: Describe la necesidad antes que la solución.
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+    validations:
+      required: true
+  - type: textarea
+    id: medicion
+    attributes:
+      label: Cómo se mediría la mejora
+      description: Si afecta a la recuperación, qué métrica debería subir.

@@ -37,6 +37,7 @@ negras.
 | Recuperación densa | `rag_agent/embeddings.py` | Búsqueda por significado con embeddings |
 | Selección de estrategia | `rag_agent/factory.py` | Construye el recuperador elegido |
 | Evaluación | `rag_agent/evaluation.py` | Métricas Hit@k, MRR y Recall@k |
+| Fusión híbrida | `rag_agent/hybrid.py` | Combina estrategias con Reciprocal Rank Fusion |
 | Configuración | `rag_agent/config.py` | Ajustes desde el entorno y `.env` |
 | CLI | `rag_agent/cli.py` | Interfaz de línea de comandos |
 | API | `rag_agent/api.py` | Servicio HTTP con FastAPI |
@@ -64,16 +65,32 @@ fragmentos más relevantes, sin inventar nada. Es rápido, gratuito y offline.
 
 | Backend | Cómo compara | Cuándo conviene |
 |---------|--------------|-----------------|
-| `tfidf` *(por defecto)* | Palabras compartidas entre pregunta y texto | Instantáneo, sin descargas, sólido con vocabulario común |
+| `tfidf` *(por defecto)* | Palabras compartidas entre pregunta y texto | Instantáneo, sin descargas, sólido con términos exactos y siglas |
 | `embeddings` | Significado, mediante vectores neuronales | Encuentra "felino" al preguntar por un gato, aunque la palabra no aparezca |
+| `hybrid` | Fusiona ambas listas por posición (RRF) | Cubre el punto ciego de cada una; es lo que usan los motores de búsqueda modernos |
 
 ```bash
 pip install -e ".[embeddings]"
-rag-agent --ask "¿Dónde descansa el felino?" --backend embeddings
+rag-agent --ask "¿Dónde descansa el felino?" --backend hybrid
 ```
 
 El modelo se carga de forma perezosa: quien use el modo léxico nunca
 descarga PyTorch.
+
+### Por qué la fusión funciona
+
+Las puntuaciones de ambas estrategias no son comparables —un 0,7 de coseno
+no equivale a un 0,7 de TF-IDF—, así que **Reciprocal Rank Fusion** las
+ignora y combina solo las posiciones:
+
+```text
+score(d) = Σ  1 / (60 + posición de d en la lista i)
+```
+
+Un fragmento bien situado por ambas sube al primer puesto; uno que solo una
+estrategia considera relevante entra igualmente, algo más abajo. No hay
+escalas que calibrar, y por eso es la técnica de referencia
+(Cormack et al., SIGIR 2009).
 
 ## Medir la calidad de la recuperación
 
@@ -180,6 +197,17 @@ La integración continua ejecuta formato, lint y tipos; la batería de tests
 sobre **Python 3.10, 3.11 y 3.12**; la evaluación de calidad con umbrales; y
 construye la imagen Docker comprobando que el servicio responde.
 
+Además, el repositorio se mantiene solo:
+
+| Automatización | Qué hace |
+|----------------|----------|
+| **CodeQL** | Analiza el código en busca de vulnerabilidades, en cada cambio y cada semana |
+| **Dependabot** | Abre pull requests con las dependencias actualizadas; la CI decide si son seguras |
+| **Evaluación semanal** | Vuelve a medir la calidad y abre una incidencia si decae |
+
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para el flujo de trabajo y
+[SECURITY.md](SECURITY.md) para comunicar una vulnerabilidad.
+
 ## Roadmap
 
 - [x] Pipeline RAG completo, en local y sin claves
@@ -187,9 +215,11 @@ construye la imagen Docker comprobando que el servicio responde.
 - [x] API REST con FastAPI y despliegue en Docker
 - [x] Embeddings neuronales como alternativa a TF-IDF
 - [x] Evaluación con métricas estándar y umbrales en CI
+- [x] Búsqueda híbrida con Reciprocal Rank Fusion
+- [x] Automatización: CodeQL, Dependabot y evaluación programada
 - [ ] Almacén vectorial persistente (FAISS / Chroma)
 - [ ] Ingesta de PDF y Markdown además de texto plano
-- [ ] Búsqueda híbrida: combinar señal léxica y semántica
+- [ ] Reordenación con cross-encoder sobre los candidatos recuperados
 
 ## Sobre el proyecto
 

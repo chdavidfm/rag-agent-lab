@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="rag-agent-lab",
-    version="0.3.0",
+    version="0.4.0",
     summary="Pregunta en lenguaje natural sobre tus propios documentos.",
     lifespan=lifespan,
 )
