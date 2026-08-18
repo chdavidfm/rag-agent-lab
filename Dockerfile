@@ -1,7 +1,7 @@
 # Container image for the HTTP service.
 #   docker build -t rag-agent-lab .
 #   docker run --rm -p 8000:8000 rag-agent-lab
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
