@@ -59,7 +59,10 @@ markers = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+# Sin fijar python_version: mypy analiza con la versión del intérprete que lo
+# ejecuta. Fijarla a una versión distinta de la instalada hace que no pueda
+# leer los stubs de dependencias como numpy, compilados para intérpretes más
+# nuevos. La compatibilidad con 3.10 la garantizan la matriz de tests y ruff.
 files = ["rag_agent"]
 ignore_missing_imports = true
 warn_unused_ignores = true
