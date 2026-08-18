@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .chunk import chunk_text
 from .generate import answer
-from .retriever import TfidfRetriever
+from .retriever import Hit, TfidfRetriever
 
 
 class RagPipeline:
@@ -35,5 +35,12 @@ class RagPipeline:
 
     def ask(self, question: str) -> str:
         """Recupera el contexto relevante y genera la respuesta."""
-        hits = self.retriever.search(question, k=self.k)
+        return self.answer_from(question, self.retriever.search(question, k=self.k))
+
+    def answer_from(self, question: str, hits: list[Hit]) -> str:
+        """Genera la respuesta a partir de unos fragmentos ya recuperados.
+
+        Permite a quien ya tiene los fragmentos (por ejemplo la API, que los
+        devuelve junto a la respuesta) evitar una segunda búsqueda.
+        """
         return answer(question, [hit.text for hit in hits])
