@@ -1,31 +1,56 @@
-# Dependabot watches the dependencies and opens a pull request whenever a new
-# version appears. CI decides whether the update is safe, so the project stays
-# current without manual review.
+# Dependabot watches the dependencies and opens a pull request when a new
+# version appears. Left at its defaults it opens one per package, which for a
+# solo maintainer means six notifications a week, then the habit of ignoring
+# them, and then the security patch that mattered drowning with the rest.
+#
+# So: everything routine arrives grouped, on a schedule, with a hard cap. What
+# is genuinely a migration rather than an update is excluded on purpose and
+# raised deliberately.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
+    open-pull-requests-limit: 3
     commit-message:
-      prefix: "deps"
+      prefix: deps
     groups:
-      # One pull request for the development tooling instead of one each:
-      # less noise, a single review.
-      tooling:
-        patterns: ["ruff", "mypy", "pytest*"]
+      # One pull request for everything safe. CI decides whether it lands.
+      routine:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # A major of a pinned linter is a migration: ruff and mypy change their
+      # rule sets across majors and will fail CI on code that was correct
+      # yesterday. Worth doing — not worth doing by surprise.
+      - dependency-name: ruff
+        update-types: [version-update:semver-major]
+      - dependency-name: mypy
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    open-pull-requests-limit: 2
     commit-message:
-      prefix: "ci"
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
+    open-pull-requests-limit: 1
     commit-message:
-      prefix: "docker"
+      prefix: docker
+    ignore:
+      # The base image major is the runtime itself. Moving 3.11 to 3.14 changes
+      # which wheels resolve and what the test matrix means; it belongs in a
+      # deliberate change, alongside the matrix, not in an overnight bump.
+      - dependency-name: python
+        update-types: [version-update:semver-major]
