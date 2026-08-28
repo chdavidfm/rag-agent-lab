@@ -1,0 +1,64 @@
+name: Release
+
+# A tag is a promise: this exact tree is installable and behaves as documented.
+# So the tag does not publish anything by itself — it triggers the same checks
+# that guard main, plus the quality gate, and only a green run becomes a
+# release. A tagged version that was never verified is worse than no tag,
+# because someone will pin to it.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Verify, then publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # Refuse early if the tag and the package disagree. This is the drift
+      # that turns a version number into a lie, and it is silent otherwise.
+      - name: Compose the notes from the changelog
+        run: |
+          python scripts/release_notes.py "${GITHUB_REF_NAME}" > NOTES.md
+          echo "--- notes ---"; cat NOTES.md
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Types
+        run: mypy
+
+      - name: Tests
+        run: pytest
+
+      - name: Retrieval quality
+        run: rag-eval --min-hit-rate 0.90 --min-mrr 0.80
+
+      - name: Build the distribution
+        run: |
+          python -m pip install build
+          python -m build
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: NOTES.md
+          files: dist/*
+          fail_on_unmatched_files: true
