@@ -22,12 +22,15 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
     ignore:
-      # A major of a pinned linter is a migration: ruff and mypy change their
+      # A major of a pinned tool is a migration: ruff and mypy change their
       # rule sets across majors and will fail CI on code that was correct
-      # yesterday. Worth doing — not worth doing by surprise.
+      # yesterday, and pytest changes fixture and collection behaviour the
+      # same way. Worth doing — not worth doing by surprise.
       - dependency-name: ruff
         update-types: [version-update:semver-major]
       - dependency-name: mypy
+        update-types: [version-update:semver-major]
+      - dependency-name: pytest
         update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
