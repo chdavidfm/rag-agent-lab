@@ -12,16 +12,23 @@ from __future__ import annotations
 
 import re
 import sys
-import tomllib
 from pathlib import Path
 
 CHANGELOG = Path("CHANGELOG.md")
 PYPROJECT = Path("pyproject.toml")
 
+# Read the version with a regex rather than a TOML parser: tomllib only exists
+# from Python 3.11, and this package supports 3.10. A build script that cannot
+# run on the oldest supported interpreter is a trap for whoever hits it first.
+VERSION = re.compile(r'^version\s*=\s*"([^"]+)"', re.M)
+
 
 def declared_version() -> str:
     """The version the package claims to be."""
-    return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
+    match = VERSION.search(PYPROJECT.read_text(encoding="utf-8"))
+    if match is None:
+        sys.exit("pyproject.toml declares no version.")
+    return match.group(1)
 
 
 def section(version: str, text: str) -> str:
@@ -39,7 +46,7 @@ def section(version: str, text: str) -> str:
     rest = text[match.end() :]
     following = re.search(r"^##\s*\[", rest, re.M)
     body = rest[: following.start()] if following else rest
-    return body.strip("\n").lstrip("\n").strip()
+    return body.strip()
 
 
 def main(argv: list[str]) -> int:
