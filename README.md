@@ -41,6 +41,15 @@ stage lives in its own module, with minimal dependencies and no black boxes.
 Requires Python 3.10 or newer.
 
 ```bash
+pip install "git+https://github.com/chdavidfm/rag-agent-lab@v0.5.0"
+```
+
+Every tag is built and published by CI, with a wheel and an sdist attached; the
+current one is on the
+[releases page](https://github.com/chdavidfm/rag-agent-lab/releases). To work
+on the code instead, install it editable from a clone:
+
+```bash
 git clone https://github.com/chdavidfm/rag-agent-lab.git
 cd rag-agent-lab
 pip install -e .
@@ -236,6 +245,7 @@ The repository also maintains itself:
 | **CodeQL** | Scans for vulnerabilities on every change and weekly |
 | **Dependabot** | Opens pull requests with updated dependencies; CI decides if they are safe |
 | **Weekly evaluation** | Re-measures quality and opens an issue if it drops |
+| **Release** | A tag re-measures retrieval and publishes only if the thresholds hold; the notes come from `CHANGELOG.md`, so a version without an entry cannot ship |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
 [SECURITY.md](SECURITY.md) for reporting a vulnerability.
@@ -250,6 +260,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
 - [x] Hybrid search through Reciprocal Rank Fusion
 - [x] Cross-encoder reranking
 - [x] Content-addressed index cache
+- [x] Gated releases published from a tag
 - [ ] Persistent vector store (FAISS / Chroma)
 - [ ] PDF and Markdown ingestion
 - [ ] Streaming answers over the API
