@@ -1,15 +1,20 @@
 name: Weekly evaluation
 
 # Quality can degrade without the code changing: a new dependency alters the
-# tokeniser, a model is updated upstream. This weekly run catches that and
-# opens an issue automatically.
+# tokeniser, a model is updated upstream. This weekly run catches that, writes
+# the numbers down, and opens an issue if they fell below the thresholds.
+#
+# The order is deliberate. Measure once, record whatever came out, and only
+# then enforce. Recording after the gate would mean a failing week never
+# reaches the history — and a history that can only show good weeks is not a
+# history, it is an advertisement.
 on:
   schedule:
     - cron: "0 7 * * 1"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -29,8 +34,36 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      - name: Evaluate
-        run: rag-eval --min-hit-rate 0.90 --min-mrr 0.80
+      # --json writes the metrics to stdout and still exits 1 when a threshold
+      # is breached, so one run yields both the record and the verdict.
+      - name: Measure
+        id: measure
+        run: |
+          set +e
+          rag-eval --json --min-hit-rate 0.90 --min-mrr 0.80 > measurement.json
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          cat measurement.json
+
+      - name: Record it, whatever it said
+        run: python scripts/record_quality.py < measurement.json
+
+      - name: Commit the history
+        run: |
+          git add data/quality-history.csv
+          if git diff --cached --quiet; then
+            echo "Today is already recorded."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "quality: record the weekly measurement"
+          git push
+
+      - name: Fail if the thresholds were not met
+        if: steps.measure.outputs.status != '0'
+        run: |
+          echo "The measurement is below its thresholds; the row is recorded." >&2
+          exit 1
 
       - name: Open an issue if quality dropped
         if: failure()
@@ -44,6 +77,7 @@ jobs:
               repo: context.repo.repo,
               title: "Weekly evaluation fell below the quality thresholds",
               body: `The scheduled measurement did not meet its minimum thresholds.\n\n` +
+                    `The measured row is in \`data/quality-history.csv\`.\n\n` +
                     `Full log: ${url}`,
               labels: ["quality"],
             });
