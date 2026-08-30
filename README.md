@@ -21,7 +21,7 @@ stage lives in its own module, with minimal dependencies and no black boxes.
 ```text
   documents ──► chunk ──► index ──► retrieve ──► rerank ──► generate ──► answer
                                         ▲          (optional)   │
-                                     question ──────────────────┘
+                                     question ───────────────────────┘
 ```
 
 | Stage | Module | Responsibility |
@@ -46,8 +46,16 @@ pip install "git+https://github.com/chdavidfm/rag-agent-lab@v0.5.0"
 
 Every tag is built and published by CI, with a wheel and an sdist attached; the
 current one is on the
-[releases page](https://github.com/chdavidfm/rag-agent-lab/releases). To work
-on the code instead, install it editable from a clone:
+[releases page](https://github.com/chdavidfm/rag-agent-lab/releases). Each
+artefact carries a signed provenance statement, so you can confirm it was built
+by this repository's workflow rather than uploaded by someone:
+
+```bash
+gh attestation verify rag_agent_lab-0.5.0-py3-none-any.whl \
+  --repo chdavidfm/rag-agent-lab
+```
+
+To work on the code instead, install it editable from a clone:
 
 ```bash
 git clone https://github.com/chdavidfm/rag-agent-lab.git
@@ -149,6 +157,11 @@ the build fails.
 rag-eval --min-hit-rate 0.90 --min-mrr 0.80   # exits 1 when unmet
 ```
 
+A threshold only says whether today is acceptable. Every Monday the measurement
+is appended to [`data/quality-history.csv`](data/quality-history.csv) before
+the thresholds are applied — including the weeks it falls short, which are the
+rows worth having.
+
 ## Index persistence
 
 Embedding a corpus is the slowest part of the pipeline and produces identical
@@ -238,14 +251,17 @@ CI runs formatting, linting and types; the suite across **Python 3.10, 3.11 and
 3.12**; the quality thresholds; and a Docker build that verifies the service
 answers.
 
+If an agent is doing the work, [`AGENTS.md`](AGENTS.md) carries the gates and
+the traps this project has already fallen into.
+
 The repository also maintains itself:
 
 | Automation | What it does |
 |------------|--------------|
 | **CodeQL** | Scans for vulnerabilities on every change and weekly |
 | **Dependabot** | Opens pull requests with updated dependencies; CI decides if they are safe |
-| **Weekly evaluation** | Re-measures quality and opens an issue if it drops |
-| **Release** | A tag re-measures retrieval and publishes only if the thresholds hold; the notes come from `CHANGELOG.md`, so a version without an entry cannot ship |
+| **Weekly evaluation** | Re-measures quality, records the row, and opens an issue if it dropped |
+| **Release** | A tag re-measures retrieval and publishes only if the thresholds hold; artefacts carry signed provenance, and the notes come from `CHANGELOG.md`, so a version without an entry cannot ship |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
 [SECURITY.md](SECURITY.md) for reporting a vulnerability.
@@ -260,7 +276,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
 - [x] Hybrid search through Reciprocal Rank Fusion
 - [x] Cross-encoder reranking
 - [x] Content-addressed index cache
-- [x] Gated releases published from a tag
+- [x] Gated releases published from a tag, with signed provenance
+- [x] Quality measured weekly and kept as a history
 - [ ] Persistent vector store (FAISS / Chroma)
 - [ ] PDF and Markdown ingestion
 - [ ] Streaming answers over the API

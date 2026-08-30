@@ -11,6 +11,11 @@ on:
 
 permissions:
   contents: write
+  # Provenance: mint the OIDC token for the Sigstore signing certificate,
+  # persist the attestation, and record where the artefact is stored.
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 jobs:
   release:
@@ -55,6 +60,14 @@ jobs:
         run: |
           python -m pip install build
           python -m build
+
+      # Binds each artefact to a signed statement of where it came from, so a
+      # wheel built here is distinguishable from one someone uploaded:
+      #   gh attestation verify <file> --repo chdavidfm/rag-agent-lab
+      - name: Attest the build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/*
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
